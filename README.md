@@ -9,7 +9,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt update
 apt install -y curl wget cron python-minimal libpython-stdlib
 apt install -y iptables
-apt install -y screen stunnel4 dropbear gnutls-bin python
+apt install -y screen squid stunnel4 dropbear gnutls-bin python
 apt install -y dos2unix nano unzip jq virt-what net-tools default-mysql-client
 apt install -y mlocate dh-make libaudit-dev build-essential fail2ban
 clear
@@ -22,50 +22,65 @@ clear
 echo 'Installing proxy.'
 {
 sudo cp /etc/apt/sources.list /etc/apt/sources.list_backup
-echo "deb http://us.archive.ubuntu.com/ubuntu/ trusty main universe" | sudo tee --append /etc/apt/sources.list.d/trusty_sources.list > /dev/null
-sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 40976EAF437D05B5
-sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 3B4FE6ACC0B21F32    
-sudo apt update
-sudo apt install -y squid3=3.3.8-1ubuntu6 squid=3.3.8-1ubuntu6 squid3-common=3.3.8-1ubuntu6
-wget 'http://firenetvpn.net/files/ocserv/1cBgmRVgsKFvBDGZ6d7OC2YBSQMkjYHrm' -O /etc/init.d/squid3
-dos2unix /etc/init.d/squid3
-sudo chmod +x /etc/init.d/squid3
-sudo update-rc.d squid3 defaults
-sudo update-rc.d squid3 enable
-cd /etc/squid3/
-rm squid.conf
-echo "acl SSH dst `ip route get 8.8.8.8 | awk '/src/ {f=NR} f&&NR-1==f' RS=" "`" >> squid.conf
-echo 'acl SSL_ports port 443
-acl Safe_ports port 80
-acl Safe_ports port 21
-acl Safe_ports port 443
-acl Safe_ports port 70
-acl Safe_ports port 210
-acl Safe_ports port 1025-65535
-acl Safe_ports port 280
-acl Safe_ports port 488
-acl Safe_ports port 591
-acl Safe_ports port 777
-acl CONNECT method CONNECT
-http_access allow SSH
-http_access deny all
-http_port 8080
+echo "deb http://ftp.debian.org/debian/ jessie main contrib non-free
+    deb-src http://ftp.debian.org/debian/ jessie main contrib non-free
+    deb http://security.debian.org/ jessie/updates main contrib
+    deb-src http://security.debian.org/ jessie/updates main contrib
+    deb http://ftp.debian.org/debian/ jessie-updates main contrib non-free
+    deb-src http://ftp.debian.org/debian/ jessie-updates main contrib non-free" >> /etc/apt/sources.list
+    apt update
+    apt install -y gcc-4.9 g++-4.9
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 10
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.9 10
+    update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 30
+    update-alternatives --set cc /usr/bin/gcc
+    update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 30
+    update-alternatives --set c++ /usr/bin/g++
+    cd /usr/src
+    wget http://www.squid-cache.org/Versions/v3/3.1/squid-3.1.23.tar.gz
+    tar zxvf squid-3.1.23.tar.gz
+    cd squid-3.1.23
+    ./configure --prefix=/usr \
+      --localstatedir=/var/squid \
+      --libexecdir=/usr/lib/squid \
+      --srcdir=. \
+      --datadir=/usr/share/squid \
+      --sysconfdir=/etc/squid \
+      --with-default-user=proxy \
+      --with-logdir=/var/log/squid \
+      --with-pidfile=/var/run/squid.pid
+    make -j$(nproc)
+    make install
+    wget --no-check-certificate -O /etc/init.d/squid http://firenetvpn.net/files/slowdns/squid.sh
+    chmod +x /etc/init.d/squid
+    update-rc.d squid defaults
+    chown -cR proxy /var/log/squid
+    squid -z
+    cd /etc/squid/
+    rm squid.conf
+    echo "acl Firenet dst `curl -s https://api.ipify.org`" >> squid.conf
+    echo 'http_port 8080
 http_port 8181
-http_port 9090
-coredump_dir /var/spool/squid3
-refresh_pattern ^ftp: 1440 20% 10080
-refresh_pattern ^gopher: 1440 0% 1440
-refresh_pattern -i (/cgi-bin/|\?) 0 0% 0
-refresh_pattern . 0 20% 4320
-visible_hostname KobZ-Proxy
-error_directory /usr/share/squid3/errors/English' >> squid.conf
-cd /usr/share/squid3/errors/English
-rm ERR_INVALID_URL
-echo '<!--KobeKobz--><!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>SECURE PROXY</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="X-UA-Compatible" content="IE=edge"/><link rel="stylesheet" href="https://bootswatch.com/4/slate/bootstrap.min.css" media="screen"><link href="https://fonts.googleapis.com/css?family=Press+Start+2P" rel="stylesheet"><style>body{font-family: "Press Start 2P", cursive;}.fn-color{color: #ffff; background-image: -webkit-linear-gradient(92deg, #f35626, #feab3a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; -webkit-animation: hue 5s infinite linear;}@-webkit-keyframes hue{from{-webkit-filter: hue-rotate(0deg);}to{-webkit-filter: hue-rotate(-360deg);}}</style></head><body><div class="container" style="padding-top: 50px"><div class="jumbotron"><h1 class="display-3 text-center fn-color">SECURE PROXY</h1><h4 class="text-center text-danger">SERVER</h4><p class="text-center">😍 %w 😍</p></div></div></body></html>' >> ERR_INVALID_URL
-chmod 755 *
-service squid3 restart
+visible_hostname Proxy
+acl PURGE method PURGE
+acl HEAD method HEAD
+acl POST method POST
+acl GET method GET
+acl CONNECT method CONNECT
+http_access allow Firenet
+http_reply_access allow all
+http_access deny all
+icp_access allow all
+always_direct allow all
+visible_hostname Firenet-Proxy
+error_directory /usr/share/squid/errors/English' >> squid.conf
+    cd /usr/share/squid/errors/English
+    rm ERR_INVALID_URL
+    echo '<!--FirenetDev--><!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>SECURE PROXY</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="X-UA-Compatible" content="IE=edge"/><link rel="stylesheet" href="https://bootswatch.com/4/slate/bootstrap.min.css" media="screen"><link href="https://fonts.googleapis.com/css?family=Press+Start+2P" rel="stylesheet"><style>body{font-family: "Press Start 2P", cursive;}.fn-color{color: #ffff; background-image: -webkit-linear-gradient(92deg, #f35626, #feab3a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; -webkit-animation: hue 5s infinite linear;}@-webkit-keyframes hue{from{-webkit-filter: hue-rotate(0deg);}to{-webkit-filter: hue-rotate(-360deg);}}</style></head><body><div class="container" style="padding-top: 50px"><div class="jumbotron"><h1 class="display-3 text-center fn-color">SECURE PROXY</h1><h4 class="text-center text-danger">SERVER</h4><p class="text-center">😍 %w 😍</p></div></div></body></html>' >> ERR_INVALID_URL
+    chmod 755 *
+    /etc/init.d/squid start
 cd /etc || exit
-wget 'https://pastebin.com/raw/xzSTiVy3' -O /etc/socks.py
+wget 'https://pastebin.com/raw/xtPc5t1k' -O /etc/socks.py
 dos2unix /etc/socks.py
 chmod +x /etc/socks.py
 rm /etc/apt/sources.list
@@ -170,7 +185,7 @@ sudo service dropbear restart
 
 install_sudo(){
   {
-    /usr/sbin/useradd -p $(openssl passwd -1 demo88) -s /bin/false -M demo88 &> /dev/null;
+    /usr/sbin/useradd -p $(openssl passwd -1 tunnelcorev2) -s /bin/false -M tunnelcorev2 &> /dev/null;
   }&>/dev/null
 }
 
