@@ -374,7 +374,7 @@ sport = $ws_ovpn
 dport = $ovpn
 basic
 
-echo "<font color=\"blue\">Tunnel Core v2</font>" > $loc/message
+echo "<font color=\"blue\">Tunnel Core v2 Server</font>" > $loc/message
 
 web=$loc/web
 mkdir $web 2> /dev/null
