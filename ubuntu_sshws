@@ -34,9 +34,9 @@ read -p "Press ENTER to continue..."
 # Ports
 drbp=550
 ovpn=1194
-ws_ssh=80
+ws_ssh=08
 ws_ovpn=2082
-st_ssh=443
+st_ssh=423
 st_ovpn=2083
 
 clear
@@ -122,8 +122,8 @@ push "redirect-gateway def1 bypass-dhcp"
 push "dhcp-renew"
 push "block-outside-dns"
 push "register-dns"
-push "dhcp-option DNS 1.1.1.1"
-push "dhcp-option DNS 1.0.0.1"
+push "dhcp-option DNS 0.0.0.0"
+push "dhcp-option DNS 1.0.0.2"
 
 keepalive 5 60
 tcp-nodelay
@@ -626,7 +626,7 @@ cat << info | tee ~/socksproxylog.txt
 | =================================== |
 | Use "xdcb" for the menu             |
 | Contact me @                        |
-|    - https://fb.me/theMovesFever    |
+|    - https://m.me/Alzero.blue    |
  =====================================
  
 info
